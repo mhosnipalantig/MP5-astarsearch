@@ -17,7 +17,6 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# ── Constants ──────────────────────────────────────────────────────────────────
 GOAL       = (1, 2, 3, 4, 5, 6, 7, 8, 0)
 GOAL_INDEX = {v: i for i, v in enumerate(GOAL)}
 
@@ -27,8 +26,6 @@ MOVES = [
     ('Left',  -1),
     ('Right', +1),
 ]
-
-# ── Helpers ────────────────────────────────────────────────────────────────────
 
 def manhattan_distance(state):
     dist = 0
@@ -74,7 +71,7 @@ def parse_state(state_str):
     return tuple(int(x) for x in parts)
 
 
-# ── A* Search ─────────────────────────────────────────────────────────────────
+# For my A* algorithm
 
 def astar(start):
     h_start = manhattan_distance(start)
@@ -115,8 +112,6 @@ def astar(start):
 
     return {'solved': False, 'path': [], 'moves': [], 'visited': [], 'stats': {}}
 
-
-# ── Flask Routes ───────────────────────────────────────────────────────────────
 
 @app.route('/')
 def index():
