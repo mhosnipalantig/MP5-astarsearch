@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>8-Puzzle — A* Search</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#f5f5f5;--bg2:#eaeaea;--surface:#ffffff;--surface2:#f9f9f9;
+    --border:#e0e0e0;--border2:#d0d0d0;
+    --shadow-sm:0 1px 4px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md:0 4px 16px rgba(0,0,0,0.08),0 1px 4px rgba(0,0,0,0.04);
+    --shadow-lg:0 8px 32px rgba(0,0,0,0.10),0 2px 8px rgba(0,0,0,0.05);
+    --accent:#70798b;--accent-dim:rgba(74,128,240,0.10);--accent-border:rgba(74,128,240,0.35);
+    --green:#2da86e;--green-dim:rgba(45,168,110,0.10);--green-border:rgba(45,168,110,0.35);
+    --amber:#e5962a;--red:#e05555;
+    --text:#1a1a1a;--text2:#555555;--text3:#909090;--text4:#b5b5b5;
+    --mono:'JetBrains Mono',monospace;--sans:'Inter',sans-serif;
+    --tile-size:80px;--mini-size:20px;--radius:14px;--radius-sm:8px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:linear-gradient(160deg,#f5f5f5 0%,#eaeaea 100%);background-attachment:fixed;color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden;}
+  .container{max-width:980px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+
+  /* HEADER */
+  .header{text-align:center;margin-bottom:2.5rem;padding-bottom:2rem;border-bottom:1px solid var(--border);animation:fadeDown 0.5s ease;}
+  .header-badges{display:flex;justify-content:center;gap:8px;margin-bottom:1.4rem;}
+  .header h1{font-size:64px;font-weight:800;letter-spacing:-3px;line-height:1;color:var(--text);margin-bottom:10px;}
+  .header h2{font-size:18px;font-weight:500;color:var(--text2);letter-spacing:0.01em;margin-bottom:10px;}
+  .header p{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:0.05em;}
+
+  /* BADGES */
+  .badge{font-family:var(--mono);font-size:10px;padding:3px 11px;border-radius:20px;border:1px solid var(--border2);color:var(--text3);background:var(--surface);letter-spacing:0.08em;}
+  .badge.green{border-color:var(--green-border);color:var(--green);background:var(--green-dim);}
+  .badge.blue{border-color:var(--accent-border);color:var(--accent);background:var(--accent-dim);}
+
+  /* PANELS */
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-md);overflow:hidden;animation:fadeUp 0.4s ease;transition:box-shadow 0.2s;}
+  .panel:hover{box-shadow:var(--shadow-lg);}
+  .panel-header{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--surface2);}
+  .panel-title{font-size:11px;font-weight:600;letter-spacing:0.10em;color:var(--text3);text-transform:uppercase;}
+  .panel-body{padding:22px;}
+  .section{margin-bottom:1.25rem;}
+
+  /* CONTROLS */
+  .controls-row{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:1.5rem;}
+  .speed-inline{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--text2);padding:8px 14px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);box-shadow:var(--shadow-sm);}
+  input[type=range]{accent-color:var(--accent);cursor:pointer;width:80px;}
+
+  /* BUTTONS */
+  .btn{font-size:13px;font-weight:500;padding:9px 20px;border-radius:var(--radius-sm);border:1px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;transition:all 0.15s;box-shadow:var(--shadow-sm);letter-spacing:0.01em;font-family:var(--sans);}
+  .btn:hover:not(:disabled){border-color:var(--accent-border);color:var(--accent);background:var(--accent-dim);box-shadow:var(--shadow-md);}
+  .btn:active:not(:disabled){transform:scale(0.97);}
+  .btn:disabled{opacity:0.35;cursor:not-allowed;box-shadow:none;}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(74,128,240,0.25);}
+  .btn.primary:hover:not(:disabled){background:#2d2f34;border-color:#2d2f34;color:#fff;}
+  .btn.icon{padding:9px 16px;}
+
+  /* BOARDS */
+  .boards-row{display:flex;justify-content:center;align-items:flex-start;gap:3rem;flex-wrap:wrap;}
+  .board-wrap{text-align:center;}
+  .board-label{font-size:11px;font-weight:600;color:var(--text3);letter-spacing:0.10em;text-transform:uppercase;margin-bottom:12px;}
+
+  /* PUZZLE GRID */
+  .puzzle-grid{display:grid;grid-template-columns:repeat(3,var(--tile-size));grid-template-rows:repeat(3,var(--tile-size));gap:6px;background:var(--bg2);padding:10px;border-radius:var(--radius-sm);border:1px solid var(--border);}
+  .tile{width:var(--tile-size);height:var(--tile-size);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;border-radius:7px;background:var(--surface);border:1px solid var(--border);color:var(--text);transition:all 0.2s ease;box-shadow:var(--shadow-sm);}
+  .tile.blank{background:transparent;border:1.5px dashed var(--border2);box-shadow:none;opacity:0.5;}
+  .tile.moved{background:var(--accent-dim);border-color:var(--accent-border);color:var(--accent);box-shadow:0 0 0 2px var(--accent-dim),var(--shadow-sm);}
+  .tile.goal-match{background:var(--green-dim);border-color:var(--green-border);color:var(--green);}
+
+  /* HEURISTIC BAR */
+  .h-row{display:flex;align-items:center;gap:10px;margin-top:12px;}
+  .h-label{font-family:var(--mono);font-size:11px;color:var(--text3);}
+  .h-bar{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+  .h-fill{height:100%;background:linear-gradient(90deg,var(--green) 0%,var(--amber) 50%,var(--red) 100%);border-radius:2px;transition:width 0.4s ease;}
+  .h-val{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--text);min-width:20px;text-align:right;}
+
+  /* A* CHIPS */
+  .astar-info{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+  .astar-chip{font-family:var(--mono);font-size:10px;padding:4px 10px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);display:flex;align-items:center;gap:5px;}
+  .astar-chip .chip-label{color:var(--text3);}
+  .astar-chip .chip-val{font-weight:600;color:var(--text);}
+  .astar-chip.fn{border-color:var(--accent-border);background:var(--accent-dim);}
+  .astar-chip.fn .chip-val{color:var(--accent);}
+
+  /* STATS */
+  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+  @media(max-width:600px){.stats-grid{grid-template-columns:repeat(2,1fr);}}
+  .stat-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px 12px;text-align:center;transition:box-shadow 0.15s;}
+  .stat-card:hover{box-shadow:var(--shadow-sm);}
+  .stat-val{font-size:26px;font-weight:700;color:var(--text);}
+  .stat-val.accent{color:var(--accent);}
+  .stat-val.green{color:var(--green);}
+  .stat-label{font-size:10px;font-weight:600;color:var(--text3);margin-top:4px;letter-spacing:0.08em;text-transform:uppercase;}
+
+  /* SOLUTION PATH */
+  .path-nav{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .path-info{flex:1;font-family:var(--mono);font-size:12px;color:var(--text2);text-align:center;}
+  .move-chip{font-family:var(--mono);font-size:11px;padding:3px 12px;border-radius:5px;background:var(--accent-dim);border:1px solid var(--accent-border);color:var(--accent);min-width:64px;text-align:center;transition:all 0.2s;}
+  .move-chip.start{background:var(--green-dim);border-color:var(--green-border);color:var(--green);}
+  .move-chip.goal{background:var(--green-dim);border-color:var(--green-border);color:var(--green);}
+  .path-scroll{display:flex;gap:7px;overflow-x:auto;padding:4px 2px 8px;scrollbar-width:thin;scrollbar-color:var(--border2) transparent;}
+  .path-thumb{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);cursor:pointer;transition:all 0.15s;}
+  .path-thumb:hover{border-color:var(--border2);box-shadow:var(--shadow-sm);}
+  .path-thumb.active{border-color:var(--accent-border);background:var(--accent-dim);box-shadow:0 0 0 2px var(--accent-dim);}
+  .path-thumb.goal-thumb{border-color:var(--green-border);background:var(--green-dim);}
+  .thumb-label{font-family:var(--mono);font-size:9px;color:var(--text3);}
+
+  /* MINI BOARD */
+  .mini-grid{display:grid;grid-template-columns:repeat(3,var(--mini-size));gap:2px;}
+  .mini-tile{width:var(--mini-size);height:var(--mini-size);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;font-weight:500;border-radius:3px;background:var(--surface);color:var(--text2);border:1px solid var(--border);}
+  .mini-tile.blank{background:transparent;border:1px dashed var(--border2);opacity:0.4;}
+  .mini-tile.active{background:var(--accent-dim);border-color:var(--accent-border);color:var(--accent);}
+  .mini-tile.goal-tile{background:var(--green-dim);border-color:var(--green-border);color:var(--green);}
+
+  /* VISITED */
+  .visited-scroll{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px;height:300px;overflow-y:auto;padding:4px 2px;scrollbar-width:thin;scrollbar-color:var(--border2) transparent;align-content:flex-start;}
+  .visited-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:7px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);transition:all 0.15s;}
+  .visited-item:hover{box-shadow:var(--shadow-sm);border-color:var(--border2);}
+  .visited-item.on-path{border-color:var(--accent-border);background:var(--accent-dim);}
+  .visited-item.on-path .visited-num{color:var(--accent);}
+  .visited-num{font-family:var(--mono);font-size:9px;color:var(--text3);}
+
+  /* LOG */
+  .log{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-sm);padding:8px 14px;font-family:var(--mono);font-size:11px;color:var(--text2);height:72px;overflow-y:auto;scrollbar-width:thin;}
+  .log-entry{margin-bottom:2px;}
+  .log-entry .ts{color:var(--text4);margin-right:8px;}
+  .log-entry.info .msg{color:var(--accent);}
+  .log-entry.success .msg{color:var(--green);}
+  .log-entry.warn .msg{color:var(--amber);}
+  .log-entry.err .msg{color:var(--red);}
+
+  /* LOADING */
+  .loading{display:none;position:fixed;inset:0;background:rgba(245,245,245,0.80);backdrop-filter:blur(4px);z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:14px;}
+  .loading.show{display:flex;}
+  .spinner{width:32px;height:32px;border:2.5px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;}
+  .loading-text{font-family:var(--mono);font-size:13px;color:var(--text2);}
+
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  @keyframes fadeDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">Processing...</div>
+</div>
+
+<div class="container">
+
+  <header class="header">
+    <div class="header-badges">
+      <span class="badge blue" id="serverBadge">connecting...</span>
+      <span class="badge" id="solvedBadge" style="display:none;"></span>
+    </div>
+    <h1>8-Puzzle</h1>
+    <h2>A* Search &nbsp;&middot;&nbsp; f(n) = g(n) + h(n)</h2>
+    <p>A*: Finding the smartest path, not just the fastest &nbsp;&middot;&nbsp; Palantig &amp; Macatanong</p>
+  </header>
+
+  <div class="controls-row">
+    <button class="btn primary" id="btnNew" onclick="newPuzzle()">New Puzzle</button>
+    <button class="btn" id="btnSolve" onclick="solvePuzzle()" disabled>Solve A* &#x2197;</button>
+    <div class="speed-inline">
+      <span>speed</span>
+      <input type="range" id="speedSlider" min="100" max="900" value="400" step="100">
+      <span id="speedVal" style="min-width:38px;">400ms</span>
+    </div>
+  </div>
+
+  <!-- PUZZLE BOARDS -->
+  <div class="section">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Puzzle Boards</span>
+        <span class="badge" id="hBadge">h = &mdash;</span>
+      </div>
+      <div class="panel-body">
+        <div class="boards-row">
+          <div class="board-wrap">
+            <div class="board-label">Current State</div>
+            <div class="puzzle-grid" id="boardCurrent"></div>
+            <div class="h-row">
+              <span class="h-label">h(n)</span>
+              <div class="h-bar"><div class="h-fill" id="hFill" style="width:0%"></div></div>
+              <span class="h-val" id="hVal">&mdash;</span>
+            </div>
+            <div class="astar-info">
+              <div class="astar-chip"><span class="chip-label">g(n)</span><span class="chip-val" id="gVal">&mdash;</span></div>
+              <div class="astar-chip"><span class="chip-label">h(n)</span><span class="chip-val" id="hVal2">&mdash;</span></div>
+              <div class="astar-chip fn"><span class="chip-label">f(n)=g+h</span><span class="chip-val" id="fVal">&mdash;</span></div>
+            </div>
+          </div>
+          <div class="board-wrap">
+            <div class="board-label">Goal State</div>
+            <div class="puzzle-grid" id="boardGoal"></div>
+            <div class="h-row" style="opacity:0;pointer-events:none;">
+              <span class="h-label">h</span>
+              <div class="h-bar"><div class="h-fill" style="width:0%"></div></div>
+              <span class="h-val">0</span>
+            </div>
+            <div class="astar-info" style="opacity:0;">
+              <div class="astar-chip fn"><span class="chip-label">f(n)</span><span class="chip-val">0</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATISTICS -->
+  <div class="section">
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">A* Statistics</span></div>
+      <div class="panel-body">
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-val accent" id="sVisited">&mdash;</div><div class="stat-label">States Visited</div></div>
+          <div class="stat-card"><div class="stat-val green"  id="sPath">&mdash;</div>  <div class="stat-label">Optimal Path</div></div>
+          <div class="stat-card"><div class="stat-val"        id="sStep">&mdash;</div>  <div class="stat-label">Current Step</div></div>
+          <div class="stat-card"><div class="stat-val"        id="sMove">&mdash;</div>  <div class="stat-label">Last Move</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SOLUTION PATH -->
+  <div class="section">
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Solution Path</span></div>
+      <div class="panel-body">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="move-chip start" id="moveChip">&mdash;</div>
+            <div class="path-info" id="pathInfo">run A* solver to see optimal solution path</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button class="btn icon" id="btnPrev" onclick="stepPath(-1)" disabled>&#8592; Back</button>
+            <button class="btn icon" id="btnPlay" onclick="togglePlay()" disabled style="min-width:80px;">&#9654; Play</button>
+            <button class="btn icon" id="btnNext" onclick="stepPath(1)"  disabled>Next &#8594;</button>
+          </div>
+        </div>
+        <div class="path-scroll" id="pathScroll" style="margin-top:16px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VISITED STATES -->
+  <div class="section">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">All Visited States</span>
+        <span class="badge" id="visitedBadge">0 states</span>
+      </div>
+      <div class="panel-body">
+        <p style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:10px;">States highlighted in blue are on the optimal solution path.</p>
+        <div class="visited-scroll" id="visitedGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="log" id="log"></div>
+
+</div>
+
+<script>
+const API = 'http://127.0.0.1:5000';
+let currentState = [], solution = null, pathIdx = 0, playing = false, playTimer = null;
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function log(msg, type='info') {
+  const el = document.getElementById('log');
+  const d  = document.createElement('div');
+  d.className = `log-entry ${type}`;
+  const now = new Date();
+  const ts  = [now.getHours(),now.getMinutes(),now.getSeconds()].map(n=>String(n).padStart(2,'0')).join(':');
+  d.innerHTML = `<span class="ts">${ts}</span><span class="msg">${msg}</span>`;
+  el.prepend(d);
+}
+
+function showLoading(msg='Processing...') {
+  document.getElementById('loadingText').textContent = msg;
+  document.getElementById('loading').classList.add('show');
+}
+function hideLoading() { document.getElementById('loading').classList.remove('show'); }
+
+// ── Manhattan distance (client-side for live display) ─────────────────────────
+const GOAL_POS = {1:0,2:1,3:2,4:3,5:4,6:5,7:6,8:7,0:8};
+function manhattanOf(state) {
+  return state.reduce((acc,v,i) => {
+    if (v===0) return acc;
+    const gi = GOAL_POS[v];
+    return acc + Math.abs(Math.floor(i/3)-Math.floor(gi/3)) + Math.abs(i%3-gi%3);
+  }, 0);
+}
+
+// ── Board rendering ───────────────────────────────────────────────────────────
+function renderBoard(containerId, state, movedIdx=-1) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  state.forEach((v,i) => {
+    const d = document.createElement('div');
+    d.className = 'tile'+(v===0?' blank':'')+(i===movedIdx?' moved':'');
+    d.textContent = v===0 ? '' : v;
+    el.appendChild(d);
+  });
+}
+
+function renderGoal() {
+  const el = document.getElementById('boardGoal');
+  el.innerHTML = '';
+  [1,2,3,4,5,6,7,8,0].forEach(v => {
+    const d = document.createElement('div');
+    d.className = 'tile'+(v===0?' blank':' goal-match');
+    d.textContent = v===0 ? '' : v;
+    el.appendChild(d);
+  });
+}
+
+// ── Cost display ──────────────────────────────────────────────────────────────
+function updateCosts(h, g) {
+  const maxH = 24;
+  document.getElementById('hVal').textContent  = h;
+  document.getElementById('hBadge').textContent = `h = ${h}`;
+  document.getElementById('hFill').style.width  = Math.min(100,(h/maxH)*100)+'%';
+  document.getElementById('hVal2').textContent  = h;
+  document.getElementById('gVal').textContent   = g===undefined ? '—' : g;
+  document.getElementById('fVal').textContent   = g===undefined ? '—' : (g+h);
+}
+
+// ── Mini board ────────────────────────────────────────────────────────────────
+function renderMiniBoard(state, activeClass='') {
+  const grid = document.createElement('div');
+  grid.className = 'mini-grid';
+  state.forEach(v => {
+    const t = document.createElement('div');
+    t.className = 'mini-tile'+(v===0?' blank':'')+(activeClass?` ${activeClass}`:'');
+    t.textContent = v===0 ? '' : v;
+    grid.appendChild(t);
+  });
+  return grid;
+}
+
+// ── Reset UI ──────────────────────────────────────────────────────────────────
+function resetUI() {
+  ['sVisited','sPath','sStep','sMove'].forEach(id=>document.getElementById(id).textContent='—');
+  ['gVal','hVal2','fVal'].forEach(id=>document.getElementById(id).textContent='—');
+  document.getElementById('pathInfo').textContent  = 'run A* solver to see optimal solution path';
+  document.getElementById('moveChip').textContent  = '—';
+  document.getElementById('moveChip').className    = 'move-chip start';
+  document.getElementById('pathScroll').innerHTML  = '';
+  document.getElementById('visitedGrid').innerHTML = '';
+  document.getElementById('visitedBadge').textContent = '0 states';
+  document.getElementById('solvedBadge').style.display = 'none';
+  ['btnPrev','btnNext','btnPlay'].forEach(id=>document.getElementById(id).disabled=true);
+}
+
+// ── Server check ──────────────────────────────────────────────────────────────
+async function checkServer() {
+  try {
+    const r = await fetch(`${API}/api/new-puzzle`);
+    if (r.ok) {
+      document.getElementById('serverBadge').textContent = 'flask: connected';
+      document.getElementById('serverBadge').className   = 'badge green';
+      log('Connected to Flask A* server','success');
+    }
+  } catch {
+    document.getElementById('serverBadge').textContent = 'server offline';
+    document.getElementById('serverBadge').className   = 'badge';
+    log('Cannot reach Flask server — run: python app.py','err');
+  }
+}
+
+// ── New Puzzle ────────────────────────────────────────────────────────────────
+async function newPuzzle() {
+  stopPlay();
+  solution = null; pathIdx = 0;
+  resetUI();
+  showLoading('Generating puzzle...');
+  try {
+    const r    = await fetch(`${API}/api/new-puzzle`);
+    const data = await r.json();
+    currentState = data.state;
+    renderBoard('boardCurrent', currentState);
+    updateCosts(data.heuristic, 0);
+    document.getElementById('btnSolve').disabled = false;
+    log(`New puzzle generated — h(n) = ${data.heuristic}`,'info');
+  } catch(e) {
+    log('Failed to reach server: '+e.message,'err');
+  }
+  hideLoading();
+}
+
+// ── Solve ─────────────────────────────────────────────────────────────────────
+async function solvePuzzle() {
+  stopPlay();
+  document.getElementById('btnSolve').disabled = true;
+  showLoading('Running A* Search…');
+  log('Starting A* Search  f(n) = g(n) + h(n)…','info');
+  try {
+    // Use query parameter — avoids any URL routing issue with commas
+    const url  = `${API}/api/solve?state=${currentState.join(',')}`;
+    const r    = await fetch(url);
+    const data = await r.json();
+
+    if (!data.solved) {
+      log('No solution found — puzzle may be unsolvable','err');
+      document.getElementById('btnSolve').disabled = false;
+      hideLoading(); return;
+    }
+
+    solution = data;
+    const pathSet = new Set(data.path.map(s=>s.join(',')));
+
+    document.getElementById('sVisited').textContent     = data.stats.visited_count;
+    document.getElementById('sPath').textContent        = data.stats.path_length;
+    document.getElementById('visitedBadge').textContent = `${data.stats.visited_count} states`;
+
+    // Render all visited states
+    const vGrid = document.getElementById('visitedGrid');
+    vGrid.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    data.visited.forEach((s,i) => {
+      const onPath = pathSet.has(s.join(','));
+      const item   = document.createElement('div');
+      item.className = 'visited-item'+(onPath?' on-path':'');
+      item.appendChild(renderMiniBoard(s, onPath?'active':''));
+      const lbl = document.createElement('div');
+      lbl.className   = 'visited-num';
+      lbl.textContent = `#${i+1}`;
+      item.appendChild(lbl);
+      frag.appendChild(item);
+    });
+    vGrid.appendChild(frag);
+
+    pathIdx = 0;
+    renderPathStep(0);
+    buildPathThumbs();
+
+    ['btnPrev','btnNext','btnPlay'].forEach(id=>document.getElementById(id).disabled=false);
+
+    const badge = document.getElementById('solvedBadge');
+    badge.textContent   = `optimal: ${data.stats.path_length} moves`;
+    badge.className     = 'badge green';
+    badge.style.display = '';
+
+    log(`A* solved! Optimal path: ${data.stats.path_length} moves · visited: ${data.stats.visited_count} states`,'success');
+    startPlay();
+  } catch(e) {
+    log('Solver error: '+e.message,'err');
+    document.getElementById('btnSolve').disabled = false;
+  }
+  hideLoading();
+}
+
+// ── Path thumbnails ───────────────────────────────────────────────────────────
+function buildPathThumbs() {
+  const scroll = document.getElementById('pathScroll');
+  scroll.innerHTML = '';
+  solution.path.forEach((s,i) => {
+    const isGoal = i===solution.path.length-1;
+    const thumb  = document.createElement('div');
+    thumb.className   = 'path-thumb'+(isGoal?' goal-thumb':'');
+    thumb.dataset.idx = i;
+    thumb.appendChild(renderMiniBoard(s, i===pathIdx?'active':(isGoal?'goal-tile':'')));
+    const lbl = document.createElement('div');
+    lbl.className   = 'thumb-label';
+    lbl.textContent = i===0?'start':isGoal?'goal':`s${i}`;
+    thumb.appendChild(lbl);
+    thumb.onclick = ()=>{ stopPlay(); renderPathStep(i); scrollThumb(i); };
+    scroll.appendChild(thumb);
+  });
+}
+
+function scrollThumb(idx) {
+  const scroll = document.getElementById('pathScroll');
+  const thumb  = scroll.children[idx];
+  if (thumb) thumb.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+}
+
+// ── Render path step ──────────────────────────────────────────────────────────
+function renderPathStep(idx) {
+  if (!solution) return;
+  pathIdx = Math.max(0, Math.min(solution.path.length-1, idx));
+  const s    = solution.path[pathIdx];
+  const move = solution.moves[pathIdx];
+
+  let movedIdx = -1;
+  if (pathIdx > 0) {
+    const prev = solution.path[pathIdx-1];
+    for (let i=0;i<9;i++) { if (s[i]!==prev[i]&&s[i]!==0){movedIdx=i;break;} }
+  }
+  renderBoard('boardCurrent', s, movedIdx);
+
+  const g = pathIdx;
+  const h = manhattanOf(s);
+  updateCosts(h, g);
+
+  const chip = document.getElementById('moveChip');
+  if (pathIdx===0)                          { chip.textContent='START'; chip.className='move-chip start'; }
+  else if (pathIdx===solution.path.length-1){ chip.textContent='GOAL';  chip.className='move-chip goal';  }
+  else { chip.textContent = move?move.dir.toUpperCase():'—'; chip.className='move-chip'; }
+
+  document.getElementById('sStep').textContent = pathIdx;
+  document.getElementById('sMove').textContent = move?move.dir:'start';
+  document.getElementById('pathInfo').textContent = `step ${pathIdx} / ${solution.path.length-1}`;
+
+  document.getElementById('btnPrev').disabled = pathIdx===0;
+  document.getElementById('btnNext').disabled = pathIdx===solution.path.length-1;
+
+  const scrollEl = document.getElementById('pathScroll');
+  Array.from(scrollEl.children).forEach((thumb,i)=>{
+    const isGoal = i===solution.path.length-1;
+    thumb.className = 'path-thumb'+(i===pathIdx?' active':'')+(isGoal?' goal-thumb':'');
+    thumb.querySelectorAll('.mini-tile:not(.blank)').forEach(t=>{
+      t.classList.remove('active','goal-tile');
+      if (i===pathIdx)  t.classList.add('active');
+      else if (isGoal)  t.classList.add('goal-tile');
+    });
+  });
+  scrollThumb(pathIdx);
+}
+
+// ── Playback ──────────────────────────────────────────────────────────────────
+function stepPath(d) { stopPlay(); renderPathStep(pathIdx+d); }
+
+function startPlay() {
+  if (!solution) return;
+  playing = true;
+  document.getElementById('btnPlay').textContent = '⏸ Pause';
+  const speed = parseInt(document.getElementById('speedSlider').value);
+  playTimer = setInterval(()=>{
+    if (pathIdx < solution.path.length-1) renderPathStep(pathIdx+1);
+    else stopPlay();
+  }, speed);
+}
+
+function stopPlay() {
+  playing = false; clearInterval(playTimer);
+  document.getElementById('btnPlay').textContent = '▶ Play';
+}
+
+function togglePlay() { if(playing) stopPlay(); else startPlay(); }
+
+document.getElementById('speedSlider').addEventListener('input', function(){
+  document.getElementById('speedVal').textContent = this.value+'ms';
+  if(playing){ stopPlay(); startPlay(); }
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+renderGoal();
+checkServer();
+newPuzzle();
+</script>
+</body>
+</html>
